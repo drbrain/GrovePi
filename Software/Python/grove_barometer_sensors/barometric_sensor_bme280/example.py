@@ -23,5 +23,9 @@ print("Chip ID: 0x%02X" % (chip_id))
 print("")
 
 bme.readCalibrationData()
+
 bme.showCalibrationData()
+print("")
+
 bme.showSettings()
+print("")

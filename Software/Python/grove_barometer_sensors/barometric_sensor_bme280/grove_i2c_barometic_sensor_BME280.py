@@ -129,12 +129,7 @@ class BME280:
     self.address = address
     self.debug = debug
 
-    if ((mode < 0) | (mode > self.__CTRL_MEAS_MODE_NORMAL)):
-      if (self.debug):
-        print("Invalid mode, using NORMAL")
-      self.mode = self.__CTRL_MEAS_MODE_NORMAL
-    else:
-      self.mode = mode
+    self.setMode(mode)
 
     self.readCalibrationData()
 
@@ -184,6 +179,19 @@ class BME280:
     self._cal_H5 = self.readS16(self.__REG_DIG_H5)
     self._cal_H6 = self.readS8(self.__REG_DIG_H6)
 
+  def setMode(self, mode):
+    if ((mode < 0) | (mode > self.__CTRL_MEAS_MODE_NORMAL)):
+      if (self.debug):
+        print("Invalid mode, using NORMAL")
+      self.mode = self.__CTRL_MEAS_MODE_NORMAL
+    else:
+      self.mode = mode
+
+    ctrl_meas = self.readU8(self.__REG_CTRL_MEAS)
+    ctrl_meas = (ctrl_meas & 0xfc) | mode
+
+    self.write8(self.__REG_CTRL_MEAS, ctrl_meas)
+
   def showCalibrationData(self):
     "Displays the calibration data from the device"
     print("DBG: _cal_T1 = %6d" % (self._cal_T1))
@@ -228,3 +236,6 @@ class BME280:
     print("DBG: t_sb     = {0:03b}".format(t_sb))
     print("DBG: filter   = {0:03b}".format(filter))
     print("DBG: spi3w_en = {0:01b}".format(spi3w_en))
+
+  def write8(self, register, value):
+    self.i2c.write8(register, value)
