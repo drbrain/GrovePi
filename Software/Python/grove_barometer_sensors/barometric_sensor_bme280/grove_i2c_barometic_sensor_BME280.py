@@ -110,24 +110,24 @@ class BME280:
   __REG_TEMP = 0xFD
 
   # Private fields
-  _cal_T1 = 0
-  _cal_T2 = 0
-  _cal_T3 = 0
-  _cal_P1 = 0
-  _cal_P2 = 0
-  _cal_P3 = 0
-  _cal_P4 = 0
-  _cal_P5 = 0
-  _cal_P6 = 0
-  _cal_P7 = 0
-  _cal_P8 = 0
-  _cal_P9 = 0
-  _cal_H1 = 0
-  _cal_H2 = 0
-  _cal_H3 = 0
-  _cal_H4 = 0
-  _cal_H5 = 0
-  _cal_H6 = 0
+  _dig_T1 = 0
+  _dig_T2 = 0
+  _dig_T3 = 0
+  _dig_P1 = 0
+  _dig_P2 = 0
+  _dig_P3 = 0
+  _dig_P4 = 0
+  _dig_P5 = 0
+  _dig_P6 = 0
+  _dig_P7 = 0
+  _dig_P8 = 0
+  _dig_P9 = 0
+  _dig_H1 = 0
+  _dig_H2 = 0
+  _dig_H3 = 0
+  _dig_H4 = 0
+  _dig_H5 = 0
+  _dig_H6 = 0
 
   def __init__(self,
                address=__ADDRESS,
@@ -155,31 +155,75 @@ class BME280:
 
     self.readCalibrationData()
 
+    self.raw_pressure     = 0
+    self.raw_temperature  = 0
+    self.raw_humidity     = 0
+    self.temperature_fine = 0
+
+  def humidity(self):
+    "Percent relative humidity (4.2.3)"
+    v_x1_u32r = self.temperature_fine - 76800
+    v_x1_u32r = (((((self.raw_humidity << 14) - (self._dig_H4 << 20) -
+                    (self._dig_H5 * v_x1_u32r)) + 16384) >> 15) *
+                 (((((((v_x1_u32r * self._dig_H6) >> 10) *
+                      (((v_x1_u32r * self._dig_H3) >> 11) + 32768)) >> 10) + 2097152) * self._dig_H2 + 8192) >> 14))
+    v_x1_u32r = (v_x1_u32r -
+                 (((((v_x1_u32r >> 15) *
+                     (v_x1_u32r >> 15)) >> 7) *
+                   self._dig_H1) >> 4))
+    v_x1_u32r = 0 if v_x1_u32r < 0 else v_x1_u32r
+    v_x1_u32r = 419430400 if v_x1_u32r > 419430400 else v_x1_u32r
+
+    humidity = v_x1_u32r >> 12
+
+    return humidity / 1024
+
+  def pressure(self):
+    "Atmospheric pressure in Pascals (4.2.3)"
+    var1 = self.temperature_fine - 128000
+    var2 = var1 * var1 * self._dig_P6
+    var2 = var2 + ((var1 * self._dig_P5) << 17)
+    var2 = var2 + ((self._dig_P4) << 35)
+    var1 = ((var1 * var1 * self._dig_P3) >> 8) + ((var1 * self._dig_P2) << 12)
+    var1 = (((1 << 47) + var1)) * (self._dig_P1 >> 33)
+
+    if (var1 == 0):
+      return 0 # avoid zero devision
+
+    pressure = 1048576 - self.raw_pressure
+    pressure = (((pressure << 31) - var2) * 3125) / var1
+    var1 = (self._dig_P9 * (pressure >> 13) * (pressure >> 13)) >> 25
+    var2 = ((self._dig_P8) * pressure) >> 19
+    pressure = ((pressure + var1 + var2) >> 8) + (self._dig_P7 << 4)
+
+    return pressure / 256
+
   def readChipID(self):
     return self.i2c.readU8(self.__REG_CHIP_ID)
 
   def readCalibrationData(self):
     "Reads the calibration data from the device"
-    self._cal_T1 = self.i2c.readU16(self.__REG_DIG_T1)
-    self._cal_T2 = self.i2c.readS16(self.__REG_DIG_T2)
-    self._cal_T3 = self.i2c.readS16(self.__REG_DIG_T3)
-    self._cal_P1 = self.i2c.readU16(self.__REG_DIG_P1)
-    self._cal_P2 = self.i2c.readS16(self.__REG_DIG_P2)
-    self._cal_P3 = self.i2c.readS16(self.__REG_DIG_P3)
-    self._cal_P4 = self.i2c.readS16(self.__REG_DIG_P4)
-    self._cal_P5 = self.i2c.readS16(self.__REG_DIG_P5)
-    self._cal_P6 = self.i2c.readS16(self.__REG_DIG_P6)
-    self._cal_P7 = self.i2c.readS16(self.__REG_DIG_P7)
-    self._cal_P8 = self.i2c.readS16(self.__REG_DIG_P8)
-    self._cal_P9 = self.i2c.readS16(self.__REG_DIG_P9)
-    self._cal_H1 = self.i2c.readU8(self.__REG_DIG_H1)
-    self._cal_H2 = self.i2c.readS16(self.__REG_DIG_H2)
-    self._cal_H3 = self.i2c.readU8(self.__REG_DIG_H3)
-    self._cal_H4 = self.i2c.readS16(self.__REG_DIG_H4)
-    self._cal_H5 = self.i2c.readS16(self.__REG_DIG_H5)
-    self._cal_H6 = self.i2c.readS8(self.__REG_DIG_H6)
+    self._dig_T1 = self.i2c.readU16(self.__REG_DIG_T1)
+    self._dig_T2 = self.i2c.readS16(self.__REG_DIG_T2)
+    self._dig_T3 = self.i2c.readS16(self.__REG_DIG_T3)
+    self._dig_P1 = self.i2c.readU16(self.__REG_DIG_P1)
+    self._dig_P2 = self.i2c.readS16(self.__REG_DIG_P2)
+    self._dig_P3 = self.i2c.readS16(self.__REG_DIG_P3)
+    self._dig_P4 = self.i2c.readS16(self.__REG_DIG_P4)
+    self._dig_P5 = self.i2c.readS16(self.__REG_DIG_P5)
+    self._dig_P6 = self.i2c.readS16(self.__REG_DIG_P6)
+    self._dig_P7 = self.i2c.readS16(self.__REG_DIG_P7)
+    self._dig_P8 = self.i2c.readS16(self.__REG_DIG_P8)
+    self._dig_P9 = self.i2c.readS16(self.__REG_DIG_P9)
+    self._dig_H1 = self.i2c.readU8(self.__REG_DIG_H1)
+    self._dig_H2 = self.i2c.readS16(self.__REG_DIG_H2)
+    self._dig_H3 = self.i2c.readU8(self.__REG_DIG_H3)
+    self._dig_H4 = self.i2c.readS16(self.__REG_DIG_H4)
+    self._dig_H5 = self.i2c.readS16(self.__REG_DIG_H5)
+    self._dig_H6 = self.i2c.readS8(self.__REG_DIG_H6)
 
   def readSensor(self):
+    "Read and cache raw sensor data"
     data = self.i2c.readList(self.__REG_PRESS, 8)
 
     press_msb = data[0]
@@ -193,35 +237,37 @@ class BME280:
     hum_msb = data[6]
     hum_lsb = data[7]
 
-    raw_pressure    = (press_msb << 12) | (press_lsb << 4) | press_xlsb
-    raw_temperature = (temp_msb << 12) | (temp_lsb << 4) | temp_xlsb
-    raw_humidity    = (hum_msb << 8) | hum_lsb
+    self.raw_pressure    = (press_msb << 12) | (press_lsb << 4) | press_xlsb
+    self.raw_temperature = (temp_msb << 12) | (temp_lsb << 4) | temp_xlsb
+    self.raw_humidity    = (hum_msb << 8) | hum_lsb
 
-    return [raw_pressure, raw_temperature, raw_humidity]
+    self.temperature_fine = 0
+
+    return self.raw_pressure, self.raw_temperature, self.raw_humidity
 
   def readStatus(self):
     return self.i2c.readU8(self.__REG_STATUS)
 
   def showCalibrationData(self):
     "Displays the calibration data from the device"
-    print("DBG: _cal_T1 = %6d" % (self._cal_T1))
-    print("DBG: _cal_T2 = %6d" % (self._cal_T2))
-    print("DBG: _cal_T3 = %6d" % (self._cal_T3))
-    print("DBG: _cal_P1 = %6d" % (self._cal_P1))
-    print("DBG: _cal_P2 = %6d" % (self._cal_P2))
-    print("DBG: _cal_P3 = %6d" % (self._cal_P3))
-    print("DBG: _cal_P4 = %6d" % (self._cal_P4))
-    print("DBG: _cal_P5 = %6d" % (self._cal_P5))
-    print("DBG: _cal_P6 = %6d" % (self._cal_P6))
-    print("DBG: _cal_P7 = %6d" % (self._cal_P7))
-    print("DBG: _cal_P8 = %6d" % (self._cal_P8))
-    print("DBG: _cal_P9 = %6d" % (self._cal_P9))
-    print("DBG: _cal_H1 = %6d" % (self._cal_H1))
-    print("DBG: _cal_H2 = %6d" % (self._cal_H2))
-    print("DBG: _cal_H3 = %6d" % (self._cal_H3))
-    print("DBG: _cal_H4 = %6d" % (self._cal_H4))
-    print("DBG: _cal_H5 = %6d" % (self._cal_H5))
-    print("DBG: _cal_H6 = %6d" % (self._cal_H6))
+    print("DBG: _dig_T1 = %6d" % (self._dig_T1))
+    print("DBG: _dig_T2 = %6d" % (self._dig_T2))
+    print("DBG: _dig_T3 = %6d" % (self._dig_T3))
+    print("DBG: _dig_P1 = %6d" % (self._dig_P1))
+    print("DBG: _dig_P2 = %6d" % (self._dig_P2))
+    print("DBG: _dig_P3 = %6d" % (self._dig_P3))
+    print("DBG: _dig_P4 = %6d" % (self._dig_P4))
+    print("DBG: _dig_P5 = %6d" % (self._dig_P5))
+    print("DBG: _dig_P6 = %6d" % (self._dig_P6))
+    print("DBG: _dig_P7 = %6d" % (self._dig_P7))
+    print("DBG: _dig_P8 = %6d" % (self._dig_P8))
+    print("DBG: _dig_P9 = %6d" % (self._dig_P9))
+    print("DBG: _dig_H1 = %6d" % (self._dig_H1))
+    print("DBG: _dig_H2 = %6d" % (self._dig_H2))
+    print("DBG: _dig_H3 = %6d" % (self._dig_H3))
+    print("DBG: _dig_H4 = %6d" % (self._dig_H4))
+    print("DBG: _dig_H5 = %6d" % (self._dig_H5))
+    print("DBG: _dig_H6 = %6d" % (self._dig_H6))
 
   def showSettings(self):
     "Displays all configuration and measurement settings"
@@ -246,6 +292,20 @@ class BME280:
     print("DBG: t_sb     = {0:03b}".format(t_sb))
     print("DBG: filter   = {0:03b}".format(filter))
     print("DBG: spi3w_en = {0:01b}".format(spi3w_en))
+
+  def temperature(self):
+    "Compensated temperature value in ℃ (4.2.3)"
+    var1 = ((((self.raw_temperature >> 3) - (self._dig_T1 << 1))) *
+            (self._dig_T2)) >> 11
+    var2 = (((((self.raw_temperature >> 4) - (self._dig_T1)) *
+              ((self.raw_temperature >> 4) - (self._dig_T1))) >> 12) *
+            (self._dig_T3)) >> 14
+
+    self.temperature_fine = var1 + var2
+
+    temperature = (self.temperature_fine * 5 + 128) >> 8
+
+    return temperature / 100
 
   def writeSettings(self):
     if ((self.humidity_sampling < 0) |

@@ -1,40 +1,30 @@
 #!/usr/bin/python
 
-import smbus
-import RPi.GPIO as GPIO
-#import grovepi
+import datetime
+import signal
+import time
 from grove_i2c_barometic_sensor_BME280 import BME280
 
-# ===========================================================================
-# Example Code
-# ===========================================================================
+def handler(signal, frame):
+    exit(0)
+
+signal.signal(signal.SIGINT, handler)
 
 # Initialize the sensor with defaults
-bme = BME280(debug=True)
+bme = BME280()
 
-rev = GPIO.RPI_REVISION
-if rev == 2 or rev == 3:
-    bus = smbus.SMBus(1)
-else:
-    bus = smbus.SMBus(0)
+while(True):
+  now = datetime.datetime.now().isoformat()
 
-chip_id = bme.readChipID()
-print("Chip ID: 0x%02X" % (chip_id))
-print("")
+  # Read latest sensor values (these are cached)
+  bme.readSensor()
+  
+  # return compensated values (calculate temperature first!)
+  temp = bme.temperature()
+  pres = bme.pressure() / 100
+  hum  = bme.humidity()
+  
+  # display compensated values
+  print("{0} {1:0.2f}℃ {2:0.2f}hPa {3:0.3f}%RH".format(now, temp, pres, hum))
 
-bme.readCalibrationData()
-
-bme.showCalibrationData()
-print("")
-
-bme.showSettings()
-print("")
-
-status = bme.readStatus()
-measuring = (status & 0x08) >> 4
-im_update = (status & 0x01)
-print("measuring: {0}, im_update: {1}".format(measuring, im_update))
-print("")
-
-data = bme.readSensor()
-print("sensor data: {0}".format(data))
+  time.sleep(1)
