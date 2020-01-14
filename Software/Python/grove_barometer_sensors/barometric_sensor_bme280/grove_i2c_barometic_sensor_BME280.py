@@ -8,6 +8,10 @@ from Adafruit_I2C import Adafruit_I2C
 import math
 
 class BME280:
+
+  class Error(Exception):
+    pass
+
   # I²C address (6.2.1)
   __ADDRESS = 0x76
 
@@ -42,52 +46,59 @@ class BME280:
   __SOFT_RESET = 0xB6
 
   # ctrl_hum, humidity (5.4.3)
-  __REG_CTRL_HUM  = 0xF2
-  __CTRL_HUM_SKIP = 0b000
-  __CTRL_HUM_X1   = 0b001
-  __CTRL_HUM_X2   = 0b010
-  __CTRL_HUM_X4   = 0b011
-  __CTRL_HUM_X8   = 0b100
-  __CTRL_HUM_X16  = 0b101
+  __REG_CTRL_HUM = 0xF2
+
+  HUMIDITY_SKIP  = 0b000
+  HUMIDITY_X1    = 0b001
+  HUMIDITY_X2    = 0b010
+  HUMIDITY_X4    = 0b011
+  HUMIDITY_X8    = 0b100
+  HUMIDITY_X16   = 0b101
 
   # status (5.4.4)
-  __REG_STATUS       = 0xF3
-  __STATUS_MEASURING = 0b001
-  __STATUS_UPDATING  = 0b100
+  __REG_STATUS     = 0xF3
+
+  STATUS_MEASURING = 0b001
+  STATUS_UPDATING  = 0b100
 
   # ctrl_meas, pressure and temperature (5.4.5)
-  __REG_CTRL_MEAS         = 0xF4
-  __CTRL_MEAS_OSRS_P_SKIP = 0b000
-  __CTRL_MEAS_OSRS_P_X1   = 0b001
-  __CTRL_MEAS_OSRS_P_X2   = 0b010
-  __CTRL_MEAS_OSRS_P_X4   = 0b011
-  __CTRL_MEAS_OSRS_P_X8   = 0b100
-  __CTRL_MEAS_OSRS_P_X16  = 0b101
-  __CTRL_MEAS_OSRS_T_SKIP = 0b000
-  __CTRL_MEAS_OSRS_T_X1   = 0b001
-  __CTRL_MEAS_OSRS_T_X2   = 0b010
-  __CTRL_MEAS_OSRS_T_X4   = 0b011
-  __CTRL_MEAS_OSRS_T_X8   = 0b100
-  __CTRL_MEAS_OSRS_T_X16  = 0b101
-  __CTRL_MEAS_MODE_SLEEP  = 0b00
-  __CTRL_MEAS_MODE_FORCE  = 0b01
-  __CTRL_MEAS_MODE_NORMAL = 0b11
+  __REG_CTRL_MEAS = 0xF4
+
+  PRESSURE_SKIP = 0b000
+  PRESSURE_X1   = 0b001
+  PRESSURE_X2   = 0b010
+  PRESSURE_X4   = 0b011
+  PRESSURE_X8   = 0b100
+  PRESSURE_X16  = 0b101
+
+  TEMPERATURE_SKIP = 0b000
+  TEMPERATURE_X1   = 0b001
+  TEMPERATURE_X2   = 0b010
+  TEMPERATURE_X4   = 0b011
+  TEMPERATURE_X8   = 0b100
+  TEMPERATURE_X16  = 0b101
+
+  MODE_SLEEP  = 0b00
+  MODE_FORCE  = 0b01
+  MODE_NORMAL = 0b11
 
   # config, rate, filter and interface (5.4.6)
-  __REG_CONFIG          = 0xF5
-  __CONFIG_T_SB_0_5     = 0b000
-  __CONFIG_T_SB_62_5    = 0b001
-  __CONFIG_T_SB_125     = 0b010
-  __CONFIG_T_SB_250     = 0b011
-  __CONFIG_T_SB_500     = 0b100
-  __CONFIG_T_SB_1000    = 0b101
-  __CONFIG_T_SB_10      = 0b110
-  __CONFIG_T_SB_20      = 0b111
-  __CONFIG_T_FILTER_OFF = 0b000
-  __CONFIG_T_FILTER_2   = 0b001
-  __CONFIG_T_FILTER_4   = 0b010
-  __CONFIG_T_FILTER_8   = 0b011
-  __CONFIG_T_FILTER_16  = 0b100
+  __REG_CONFIG = 0xF5
+
+  STANDBY_0_5  = 0b000
+  STANDBY_62_5 = 0b001
+  STANDBY_125  = 0b010
+  STANDBY_250  = 0b011
+  STANDBY_500  = 0b100
+  STANDBY_1000 = 0b101
+  STANDBY_10   = 0b110
+  STANDBY_20   = 0b111
+
+  FILTER_OFF = 0b000
+  FILTER_2   = 0b001
+  FILTER_4   = 0b010
+  FILTER_8   = 0b011
+  FILTER_16  = 0b100
 
   # press, raw pressure (5.4.7)
   __REG_PRESS = 0xF7
@@ -120,14 +131,27 @@ class BME280:
 
   def __init__(self,
                address=__ADDRESS,
-               mode=__CTRL_MEAS_MODE_NORMAL,
+               mode=MODE_NORMAL,
+               pressure=HUMIDITY_X1,
+               temperature=TEMPERATURE_X1,
+               humidity=PRESSURE_X1,
+               standby=STANDBY_1000,
+               filter=FILTER_OFF,
                debug=False):
     self.i2c = Adafruit_I2C(address, debug=debug)
 
     self.address = address
     self.debug = debug
 
-    self.setMode(mode)
+    self.pressure_sampling    = pressure
+    self.temperature_sampling = temperature
+    self.humidity_sampling    = humidity
+
+    self.standby = standby
+    self.filter  = filter
+    self.mode    = mode
+
+    self.writeSettings()
 
     self.readCalibrationData()
 
@@ -162,19 +186,6 @@ class BME280:
 
   def readStatus(self):
     return self.i2c.readU8(self.__REG_STATUS)
-
-  def setMode(self, mode):
-    if ((mode < 0) | (mode > self.__CTRL_MEAS_MODE_NORMAL)):
-      if (self.debug):
-        print("Invalid mode, using NORMAL")
-      self.mode = self.__CTRL_MEAS_MODE_NORMAL
-    else:
-      self.mode = mode
-
-    ctrl_meas = self.i2c.readU8(self.__REG_CTRL_MEAS)
-    ctrl_meas = (ctrl_meas & 0xfc) | mode
-
-    self.i2c.write8(self.__REG_CTRL_MEAS, ctrl_meas)
 
   def showCalibrationData(self):
     "Displays the calibration data from the device"
@@ -220,3 +231,47 @@ class BME280:
     print("DBG: t_sb     = {0:03b}".format(t_sb))
     print("DBG: filter   = {0:03b}".format(filter))
     print("DBG: spi3w_en = {0:01b}".format(spi3w_en))
+
+  def writeSettings(self):
+    if ((self.humidity_sampling < 0) |
+        (self.humidity_sampling > self.HUMIDITY_X16)):
+      raise self.Error("Invalid humidity sampling value {0}".format(self.humidity_sampling))
+    osrs_h = self.humidity_sampling
+
+    ctrl_hum = osrs_h
+
+    if ((self.temperature_sampling < 0) |
+        (self.temperature_sampling > self.TEMPERATURE_X16)):
+      raise self.Error("Invalid temperature sampling value {0}".format(self.temperature_sampling))
+
+    if ((self.pressure_sampling < 0) |
+        (self.pressure_sampling > self.PRESSURE_X16)):
+      raise self.Error("Invalid pressure sampling value {0}".format(self.pressure_sampling))
+
+    if ((self.mode < 0) |
+        (self.mode > self.MODE_NORMAL)):
+      raise self.Error("Invalid mode {0}".format(self.mode))
+
+    osrs_t = self.temperature_sampling << 5
+    osrs_p = self.pressure_sampling << 2
+    mode   = self.mode
+
+    ctrl_meas = osrs_t | osrs_p | mode
+
+    if ((self.standby < 0) |
+        (self.standby > self.STANDBY_20)):
+      raise self.Error("Invalid standby value {0}".format(self.standby))
+
+    if ((self.filter < 0) |
+        (self.filter > self.FILTER_16)):
+      raise self.Error("Invalid filter value {0}".format(self.filter))
+
+    t_sb     = self.standby << 5
+    filter   = self.filter  << 2
+    spi3w_en = 0 # SPI interface not supported
+
+    config = t_sb | filter | spi3w_en
+
+    wrote_ctrl_hum  = self.i2c.write8(self.__REG_CTRL_HUM, ctrl_hum)
+    wrote_ctrl_meas = self.i2c.write8(self.__REG_CTRL_MEAS, ctrl_meas)
+    wrote_config    = self.i2c.write8(self.__REG_CONFIG, config)
