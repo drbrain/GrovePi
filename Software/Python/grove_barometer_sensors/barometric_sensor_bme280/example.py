@@ -24,3 +24,4 @@ print("")
 
 bme.readCalibrationData()
 bme.showCalibrationData()
+bme.showSettings()

@@ -204,3 +204,27 @@ class BME280:
     print("DBG: _cal_H4 = %6d" % (self._cal_H4))
     print("DBG: _cal_H5 = %6d" % (self._cal_H5))
     print("DBG: _cal_H6 = %6d" % (self._cal_H6))
+
+  def showSettings(self):
+    "Displays all configuration and measurement settings"
+    ctrl_hum  = self.readU8(self.__REG_CTRL_HUM)
+    ctrl_meas = self.readU8(self.__REG_CTRL_MEAS)
+    config    = self.readU8(self.__REG_CONFIG)
+
+    osrs_h = ctrl_hum & 0x07
+
+    osrs_t = (ctrl_meas & 0xe0) >> 5
+    osrs_p = (ctrl_meas & 0x1c) >> 2
+    mode   = ctrl_meas & 0x03
+
+    t_sb     = (config & 0xe0) >> 5
+    filter   = (config & 0x1c) >> 2
+    spi3w_en = config & 0x01
+
+    print("DBG: osrs_h   = {0:03b}".format(osrs_h))
+    print("DBG: osrs_t   = {0:03b}".format(osrs_t))
+    print("DBG: osrs_p   = {0:03b}".format(osrs_p))
+    print("DBG: mode     = {0:02b}".format(mode))
+    print("DBG: t_sb     = {0:03b}".format(t_sb))
+    print("DBG: filter   = {0:03b}".format(filter))
+    print("DBG: spi3w_en = {0:01b}".format(spi3w_en))
