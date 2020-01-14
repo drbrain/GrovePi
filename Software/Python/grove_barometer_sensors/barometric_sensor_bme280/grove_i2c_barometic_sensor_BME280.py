@@ -182,7 +182,22 @@ class BME280:
   def readSensor(self):
     data = self.i2c.readList(self.__REG_PRESS, 8)
 
-    return data
+    press_msb = data[0]
+    press_lsb = data[1]
+    press_xlsb = data[2] >> 4
+
+    temp_msb = data[3]
+    temp_lsb = data[4]
+    temp_xlsb = data[5] >> 4
+
+    hum_msb = data[6]
+    hum_lsb = data[7]
+
+    raw_pressure    = (press_msb << 12) | (press_lsb << 4) | press_xlsb
+    raw_temperature = (temp_msb << 12) | (temp_lsb << 4) | temp_xlsb
+    raw_humidity    = (hum_msb << 8) | hum_lsb
+
+    return [raw_pressure, raw_temperature, raw_humidity]
 
   def readStatus(self):
     return self.i2c.readU8(self.__REG_STATUS)
