@@ -155,6 +155,11 @@ class BME280:
     self._cal_H5 = self.i2c.readS16(self.__REG_DIG_H5)
     self._cal_H6 = self.i2c.readS8(self.__REG_DIG_H6)
 
+  def readSensor(self):
+    data = self.i2c.readList(self.__REG_PRESS, 8)
+
+    return data
+
   def readStatus(self):
     return self.i2c.readU8(self.__REG_STATUS)
 
