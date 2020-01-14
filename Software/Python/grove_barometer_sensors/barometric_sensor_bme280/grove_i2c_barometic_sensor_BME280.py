@@ -133,51 +133,29 @@ class BME280:
 
     self.readCalibrationData()
 
-  def readS8(self, register):
-    "Reads a signed 8-bit value"
-    value = self.i2c.readS8(register)
-    return value
-
-  def readS16(self, register):
-    "Reads a signed 16-bit value"
-    hi = self.i2c.readS8(register)
-    lo = self.i2c.readU8(register+1)
-    return (hi << 8) + lo
-
-  def readU8(self, register):
-    "Reads an unsigned 8-bit value"
-    value = self.i2c.readU8(register)
-    return value
-
-  def readU16(self, register):
-    "Reads an unsigned 16-bit value"
-    hi = self.i2c.readU8(register)
-    lo = self.i2c.readU8(register+1)
-    return (hi << 8) + lo
-
   def readChipID(self):
-    return self.readU8(self.__REG_CHIP_ID)
+    return self.i2c.readU8(self.__REG_CHIP_ID)
 
   def readCalibrationData(self):
     "Reads the calibration data from the device"
-    self._cal_T1 = self.readU16(self.__REG_DIG_T1)
-    self._cal_T2 = self.readS16(self.__REG_DIG_T2)
-    self._cal_T3 = self.readS16(self.__REG_DIG_T3)
-    self._cal_P1 = self.readU16(self.__REG_DIG_P1)
-    self._cal_P2 = self.readS16(self.__REG_DIG_P2)
-    self._cal_P3 = self.readS16(self.__REG_DIG_P3)
-    self._cal_P4 = self.readS16(self.__REG_DIG_P4)
-    self._cal_P5 = self.readS16(self.__REG_DIG_P5)
-    self._cal_P6 = self.readS16(self.__REG_DIG_P6)
-    self._cal_P7 = self.readS16(self.__REG_DIG_P7)
-    self._cal_P8 = self.readS16(self.__REG_DIG_P8)
-    self._cal_P9 = self.readS16(self.__REG_DIG_P9)
-    self._cal_H1 = self.readU8(self.__REG_DIG_H1)
-    self._cal_H2 = self.readS16(self.__REG_DIG_H2)
-    self._cal_H3 = self.readU8(self.__REG_DIG_H3)
-    self._cal_H4 = self.readS16(self.__REG_DIG_H4)
-    self._cal_H5 = self.readS16(self.__REG_DIG_H5)
-    self._cal_H6 = self.readS8(self.__REG_DIG_H6)
+    self._cal_T1 = self.i2c.readU16(self.__REG_DIG_T1)
+    self._cal_T2 = self.i2c.readS16(self.__REG_DIG_T2)
+    self._cal_T3 = self.i2c.readS16(self.__REG_DIG_T3)
+    self._cal_P1 = self.i2c.readU16(self.__REG_DIG_P1)
+    self._cal_P2 = self.i2c.readS16(self.__REG_DIG_P2)
+    self._cal_P3 = self.i2c.readS16(self.__REG_DIG_P3)
+    self._cal_P4 = self.i2c.readS16(self.__REG_DIG_P4)
+    self._cal_P5 = self.i2c.readS16(self.__REG_DIG_P5)
+    self._cal_P6 = self.i2c.readS16(self.__REG_DIG_P6)
+    self._cal_P7 = self.i2c.readS16(self.__REG_DIG_P7)
+    self._cal_P8 = self.i2c.readS16(self.__REG_DIG_P8)
+    self._cal_P9 = self.i2c.readS16(self.__REG_DIG_P9)
+    self._cal_H1 = self.i2c.readU8(self.__REG_DIG_H1)
+    self._cal_H2 = self.i2c.readS16(self.__REG_DIG_H2)
+    self._cal_H3 = self.i2c.readU8(self.__REG_DIG_H3)
+    self._cal_H4 = self.i2c.readS16(self.__REG_DIG_H4)
+    self._cal_H5 = self.i2c.readS16(self.__REG_DIG_H5)
+    self._cal_H6 = self.i2c.readS8(self.__REG_DIG_H6)
 
   def setMode(self, mode):
     if ((mode < 0) | (mode > self.__CTRL_MEAS_MODE_NORMAL)):
@@ -187,10 +165,10 @@ class BME280:
     else:
       self.mode = mode
 
-    ctrl_meas = self.readU8(self.__REG_CTRL_MEAS)
+    ctrl_meas = self.i2c.readU8(self.__REG_CTRL_MEAS)
     ctrl_meas = (ctrl_meas & 0xfc) | mode
 
-    self.write8(self.__REG_CTRL_MEAS, ctrl_meas)
+    self.i2c.write8(self.__REG_CTRL_MEAS, ctrl_meas)
 
   def showCalibrationData(self):
     "Displays the calibration data from the device"
@@ -215,9 +193,9 @@ class BME280:
 
   def showSettings(self):
     "Displays all configuration and measurement settings"
-    ctrl_hum  = self.readU8(self.__REG_CTRL_HUM)
-    ctrl_meas = self.readU8(self.__REG_CTRL_MEAS)
-    config    = self.readU8(self.__REG_CONFIG)
+    ctrl_hum  = self.i2c.readU8(self.__REG_CTRL_HUM)
+    ctrl_meas = self.i2c.readU8(self.__REG_CTRL_MEAS)
+    config    = self.i2c.readU8(self.__REG_CONFIG)
 
     osrs_h = ctrl_hum & 0x07
 
@@ -236,6 +214,3 @@ class BME280:
     print("DBG: t_sb     = {0:03b}".format(t_sb))
     print("DBG: filter   = {0:03b}".format(filter))
     print("DBG: spi3w_en = {0:01b}".format(spi3w_en))
-
-  def write8(self, register, value):
-    self.i2c.write8(register, value)
