@@ -29,3 +29,9 @@ print("")
 
 bme.showSettings()
 print("")
+
+status = bme.readStatus()
+measuring = (status & 0x08) >> 4
+im_update = (status & 0x01)
+print("measuring: {0}, im_update: {1}".format(measuring, im_update))
+print("")

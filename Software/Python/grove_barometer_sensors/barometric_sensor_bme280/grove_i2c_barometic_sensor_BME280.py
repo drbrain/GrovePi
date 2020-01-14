@@ -8,8 +8,6 @@ from Adafruit_I2C import Adafruit_I2C
 import math
 
 class BME280:
-  i2c = None
-
   # I²C address (6.2.1)
   __ADDRESS = 0x76
 
@@ -156,6 +154,9 @@ class BME280:
     self._cal_H4 = self.i2c.readS16(self.__REG_DIG_H4)
     self._cal_H5 = self.i2c.readS16(self.__REG_DIG_H5)
     self._cal_H6 = self.i2c.readS8(self.__REG_DIG_H6)
+
+  def readStatus(self):
+    return self.i2c.readU8(self.__REG_STATUS)
 
   def setMode(self, mode):
     if ((mode < 0) | (mode > self.__CTRL_MEAS_MODE_NORMAL)):
